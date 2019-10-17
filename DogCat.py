@@ -42,7 +42,7 @@ def read_one_img(path, transform=transform):
     return img.unsqueeze(0)
 
 def train_model():
-    for epoch in range(10):
+    for epoch in range(20):
         for i, (img, label) in enumerate(train_loader):
             optimizer.zero_grad()
             out = net(img)
