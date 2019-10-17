@@ -93,8 +93,16 @@ def test_one_img(img_path):
     print(out)
     pre = torch.max(out, 1)[1]
     print(pre)
+    if pre.numpy()[0] == 0:
+        pre = 'dog'
+    else:
+        pre = 'cat'
+    print(pre)
     image = torchvision.utils.make_grid(img).numpy()
-    plt.imshow(np.transpose(image,(1,2,0)))
+    image = np.transpose(image, (1,2,0))
+    image = image*std + mean
+    plt.imshow(image)
+    plt.text(10, 15, pre, family='fantasy', fontsize=20, style='italic',color='mediumvioletred')
     plt.show()
 
 
