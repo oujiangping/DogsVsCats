@@ -1,7 +1,6 @@
 import torchvision.transforms as transforms
-import torch.optim as optim
 from DogCatDataset import DogCatDataset
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 import torch
 import torchvision
 import sys
@@ -13,6 +12,7 @@ mean=[0.485, 0.456, 0.406]
 std=[0.229, 0.224, 0.225]
 image_size = 224
 image_rows = 5
+batch_size = 64
 transform = transforms.Compose([
         transforms.Resize(image_size),
         transforms.CenterCrop(image_size),
@@ -20,39 +20,48 @@ transform = transforms.Compose([
         transforms.Normalize(mean=mean, std=std),])
 
 train_data = DogCatDataset(dir='./train', transform=transform)
-train_loader = DataLoader(dataset=train_data, batch_size=128, shuffle=True, num_workers=4)
+train_loader = DataLoader(dataset=train_data, batch_size=batch_size, shuffle=True)
 
 
 test_data = DogCatDataset(dir='./test', transform=transform)
-test_loader = DataLoader(dataset=train_data, batch_size=20, shuffle=True, num_workers=4)
+test_loader = DataLoader(dataset=train_data, batch_size=20, shuffle=True)
 
-net = torchvision.models.resnet34()
-net.fc = torch.nn.Linear(in_features=512, out_features=2, bias=True)
-print(net)
+net = torchvision.models.resnet50()
+net.fc = torch.nn.Linear(in_features=2048, out_features=2, bias=True)
 
 #optimizer = torch.optim.SGD(list(net.parameters())[:], lr=0.001, momentum=0.9)
 optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.99))
 loss_func = torch.nn.CrossEntropyLoss()
 
 def read_one_img(path, transform=transform):
-    output = []
     img = Image.open(path).convert('RGB')
     if transform is not None:
         img = transform(img)
     return img.unsqueeze(0)
 
-def train_model():
+def train_model(path=None):
+    if path != None:
+        train_net = torch.load('./net.pth')
+        train_net.train()
+        print('load from ./net.pth')
+        print(train_net)
+    else:
+        train_net = net
     for epoch in range(20):
+        total_num = 0;
+        total_correct = 0;
         for i, (img, label) in enumerate(train_loader):
             optimizer.zero_grad()
-            out = net(img)
+            out = train_net(img)
             loss = loss_func(out, label)
             loss.backward()
             optimizer.step()
             pre = torch.max(out, 1)[1]
             correct = pre.eq(label).sum(0).numpy()
-            print(epoch, i, 'loss is {:.4f}'.format(loss.item()), 'correct is {:.2f}%'.format(correct/len(img)*100))
-    torch.save(net, './net.pth')
+            total_correct = total_correct + correct
+            total_num += len(img)
+            print(epoch, i, 'loss is {:.4f}'.format(loss.item()), 'correct is {:.2f}%'.format(correct/len(img)*100), 'total correct is {:.2f}%'.format(total_correct/total_num*100))
+    torch.save(train_net, './net.pth')
 
 def show_label(labels):
     labels = labels.numpy()
@@ -108,6 +117,8 @@ def test_one_img(img_path):
 
 if sys.argv[1] == 'train':
     train_model()
+if sys.argv[1] == 'train_again':
+    train_model(path='./net.pth')
 if sys.argv[1] == 'test_one':
     test_one_img(img_path=sys.argv[2])
 if sys.argv[1] == 'test':
